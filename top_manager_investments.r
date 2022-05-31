@@ -10,14 +10,11 @@ library(lubridate)
 library(qdapTools)
 library(stringr)
 library(dplyr)
+library(ggplot2)
  
 options("getSymbols.warning4.0"=FALSE)
 options("getSymbols.yahoo.warning"=FALSE)
 # Downloading Apple price using quantmod
-
-getSymbols("AAPL", from = '2017-01-01',
-           to = "2018-03-01",warnings = FALSE,
-           auto.assign = TRUE)
 
 setwd("C:/Users/theco/Documents/top_manager_investments")
 
@@ -26,6 +23,8 @@ colnames(manager_df) = c("date","company")
 
 a = list.files("manager_history")
 for(date_fn in a){
+  
+  print(date_fn)
   
   date = substr(date_fn,1,8)
   
@@ -38,8 +37,8 @@ for(date_fn in a){
     company = regmatches(company,regexpr("[A-Z]+",company))
     
     if(!identical(company, character(0))){
+      print(company)
       manager_df[nrow(manager_df) + 1,] = c(date,company)
-      print
     }
   }
 
@@ -59,38 +58,53 @@ for(year_iter in min(month_years$year):max(month_years$year)){
   }
 }
 
-month_year_count_df = data.frame(matrix(0,nrow = length(month_year_all), ncol = length(unique_companies)))
+month_year_count_df = data.frame(matrix(0,nrow = length(month_year_all), ncol = length(unique_companies)+1))
 rownames(month_year_count_df) = month_year_all
-colnames(month_year_count_df) = unique_companies
+colnames(month_year_count_df) = append(unique_companies,"date")
 
-for(i in 1:nrow(month_years)){
-  my_month = month_years[i,1]
-  my_year = month_years[i,2]
+for(x in month_year_all){
+  my_month = str_split(x," ")[[1]][1]
+  my_year = str_split(x," ")[[1]][2]
+  month_year_count_df[paste(str_remove(my_month, "^0+"),my_year),"date"] =  format(as.Date(paste0(my_year,"-",my_month,"-01")))
+}
+
+for(i in 1:length(month_year_all)){
+  my_month = str_split(x," ")[[1]][1]
+  my_year = str_split(x," ")[[1]][2]
+  
   sub_manager_df = manager_df %>% filter(month==my_month&year==my_year)
-  counts = mtabulate(sub_manager_df$company)
-  for(c in colnames(counts)){
-    month_year_count_df[paste(my_month,my_year),c] = sum(counts[,c])
+  sub_manager_df = manager_df %>% filter(day==min(sub_manager_df$day))
+  
+  if(nrow(sub_manager_df)!=0){
+    counts = mtabulate(sub_manager_df$company)
+    for(c in unique_companies){
+      month_year_count_df[paste(str_remove(my_month, "^0+"),my_year),c] = sum(counts[,c])
+    }
+  }else{
+    for(c in unique_companies){
+      month_year_count_df[paste(str_remove(my_month, "^0+"),my_year),c] = -1 #To be interpolated 
+    }
   }
 }
 
-
-month_year_count_df$GOOG
-
-
-df$Date <- as.Date( manager_df$date, '%m/%d/%Y')
-require(ggplot2)
-ggplot( data = month_year_count_df, aes( rownames(month_year_count_df), "GOOG" )) 
+ggplot(data = month_year_count_df, aes(x = date, y = MSFT, group=1)) + geom_line()
 
 
-ggplot() + geom_line(data = month_year_count_df, aes(x = id, y = value, color = func, group = func), size = 1)
+getSymbols("MSFT", from = '2018-01-01',
+           to = "2022-12-01",warnings = FALSE,
+           auto.assign = TRUE)
+MSFT = as.data.frame(MSFT)
 
-matplot(month_year_count_df, type="l", ylim=c(0,0.3), lwd=4, col=1:5, lty=1)
+ggplot(data = MSFT, aes(x = rownames(MSFT), y = MSFT.Close, group=1)) + geom_line()
 
 
-month_year_count_df
 
-# 
-# manager_df = apply(manager_df, 1, function(x){any(is.na(x))})
-#   
+for(c in unique_companies){
+  getSymbols(c, from = '2017-01-01',
+             to = "2018-03-01",warnings = FALSE,
+             auto.assign = TRUE)
+}
 
-plot(ts(mtabulate(manager_df$company)))
+
+
+
